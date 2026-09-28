@@ -1,0 +1,1959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>7-Depot Stock, Sales & Dispatch Automated Command Center</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js for high performance analytics charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- SheetJS (xlsx) for instant Excel upload support -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              200: '#bae6fd',
+              300: '#7dd3fc',
+              400: '#38bdf8',
+              500: '#0284c7',
+              600: '#0369a1',
+              700: '#075985',
+              800: '#0c4a6e',
+              900: '#082f49',
+              950: '#041d2d'
+            },
+            nodeTeal: '#0284c7',
+            nodeTealLight: '#38bdf8',
+            nodeTealGlow: '#0ea5e9',
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'flow-particle': 'flow 4s linear infinite',
+            'float': 'float 4s ease-in-out infinite',
+            'spin-slow': 'spin 12s linear infinite',
+          },
+          keyframes: {
+            flow: {
+              '0%': { strokeDashoffset: '400' },
+              '100%': { strokeDashoffset: '0' }
+            },
+            float: {
+              '0%, 100%': { transform: 'translateY(0px)' },
+              '50%': { transform: 'translateY(-6px)' }
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+    
+    * {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      box-sizing: border-box;
+    }
+    
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Light Theme Glass Cards */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(226, 232, 240, 0.95);
+      box-shadow: 0 4px 14px -2px rgba(15, 23, 42, 0.05), 0 1px 3px 0 rgba(15, 23, 42, 0.03);
+    }
+
+    .glow-cyan {
+      box-shadow: 0 0 25px -2px rgba(14, 165, 233, 0.45);
+    }
+    
+    .glow-cyan-sm {
+      box-shadow: 0 0 10px 0px rgba(14, 165, 233, 0.35);
+    }
+
+    /* Light Mode Tube & Pipeline Styling */
+    .pipeline-path-bg {
+      stroke: #cbd5e1;
+      stroke-width: 58;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+    }
+    
+    .pipeline-path-inner {
+      stroke: #0284c7;
+      stroke-width: 44;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+    }
+
+    .pipeline-flow {
+      stroke: #7dd3fc;
+      stroke-width: 5;
+      stroke-dasharray: 12, 18;
+      fill: none;
+      animation: dashFlow 2s linear infinite;
+    }
+
+    .pipeline-flow-fast {
+      animation: dashFlowFast 1.2s linear infinite;
+    }
+
+    @keyframes dashFlow {
+      to {
+        stroke-dashoffset: -60;
+      }
+    }
+
+    @keyframes dashFlowFast {
+      to {
+        stroke-dashoffset: -44;
+      }
+    }
+
+    /* ========================================================================= */
+    /* TARGETED DEPOT CIRCLE ZOOM-IN & ZOOM-OUT DIVE ANIMATIONS */
+    /* ========================================================================= */
+    #pipeline-container {
+      transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s cubic-bezier(0.25, 1, 0.5, 1), filter 0.5s ease;
+      transform-origin: 50% 50%;
+      will-change: transform, opacity, filter;
+    }
+
+    #pipeline-container.zooming-in {
+      transform: scale(3.8);
+      opacity: 0;
+      filter: blur(6px);
+      pointer-events: none;
+    }
+
+    #pipeline-container.zooming-out-start {
+      transform: scale(3.8);
+      opacity: 0;
+      filter: blur(6px);
+      transition: none !important;
+    }
+
+    #pipeline-container.zooming-out-end {
+      transform: scale(1);
+      opacity: 1;
+      filter: blur(0px);
+      transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.55s ease, filter 0.55s ease;
+    }
+
+    .zoom-land-in {
+      animation: zoomLandIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    @keyframes zoomLandIn {
+      0% {
+        transform: scale(0.9);
+        opacity: 0;
+        filter: blur(6px);
+      }
+      100% {
+        transform: scale(1);
+        opacity: 1;
+        filter: blur(0px);
+      }
+    }
+
+    .zoom-leave-out {
+      animation: zoomLeaveOut 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+      pointer-events: none;
+    }
+    @keyframes zoomLeaveOut {
+      0% {
+        transform: scale(1);
+        opacity: 1;
+        filter: blur(0px);
+      }
+      100% {
+        transform: scale(0.9);
+        opacity: 0;
+        filter: blur(6px);
+      }
+    }
+
+    /* Smooth pulse scale when switching depots */
+    .depot-scale-switch {
+      animation: depotSwitch 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    @keyframes depotSwitch {
+      0% {
+        transform: scale(0.96);
+        opacity: 0.8;
+      }
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(241, 245, 249, 0.8);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.45);
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col selection:bg-cyan-500 selection:text-white">
+
+  <!-- ========================================================================= -->
+  <!-- TOP HEADER & CONTROLS BAR (LIGHT THEME) -->
+  <!-- ========================================================================= -->
+  <header class="border-b border-slate-200/90 bg-white/95 backdrop-blur-md sticky top-0 z-50 px-4 py-2.5 shadow-sm">
+    <div class="max-w-[1750px] mx-auto flex flex-wrap items-center justify-between gap-3">
+      
+      <!-- Brand & Title -->
+      <div class="flex items-center gap-3">
+        <div class="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-blue-700 shadow-md shadow-sky-500/25 text-white font-bold cursor-pointer" onclick="toggleViewMode()">
+          <i data-lucide="boxes" class="w-5 h-5"></i>
+          <span class="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+          </span>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-black text-base sm:text-lg tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-sky-700 bg-clip-text text-transparent">
+              STOCK, SALES & DISPATCH COMMAND
+            </h1>
+            <span class="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 border border-sky-200">
+              7 Depots Slideshow
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-500 flex items-center gap-2">
+            <span>Inventory • Daily Sales • Live Dispatch Telemetry</span>
+            <span>•</span>
+            <span class="font-mono text-sky-600 font-semibold" id="live-clock">12:00:00 PM</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- Center Slideshow Status & Direct View Switch Buttons -->
+      <div class="flex items-center gap-2 bg-slate-50 border border-slate-200 p-1 rounded-xl">
+        <button id="btn-view-network" onclick="returnToNetwork()" class="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition border bg-sky-50 text-sky-700 border-sky-300 shadow-sm font-bold">
+          <i data-lucide="network" class="w-3.5 h-3.5 text-sky-600"></i>
+          <span>Network Matrix</span>
+        </button>
+        <button id="btn-view-depot" onclick="openDepotView()" class="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition border bg-white text-slate-600 border-slate-200 hover:text-slate-900 shadow-sm">
+          <i data-lucide="layout-dashboard" class="w-3.5 h-3.5 text-emerald-600"></i>
+          <span id="active-depot-indicator">#01 Chennai Central Hub</span>
+        </button>
+      </div>
+
+      <!-- Right Controls: Excel Upload, Timer, Play/Pause, Speed, Navigation -->
+      <div class="flex items-center gap-2">
+        
+        <!-- Excel Upload Button -->
+        <label class="cursor-pointer px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-sm" title="Upload Excel / CSV to update live metrics">
+          <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+          <span class="hidden md:inline">Upload Excel</span>
+          <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleExcelUpload(event)">
+        </label>
+
+        <!-- Timer Progress Ring -->
+        <div class="flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1.5 rounded-xl text-xs shadow-sm">
+          <div class="relative w-5 h-5 flex items-center justify-center">
+            <svg class="w-5 h-5 -rotate-90">
+              <circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="2" class="text-slate-200" fill="none"/>
+              <circle id="timer-circle" cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="2" class="text-sky-600 transition-all duration-100" stroke-dasharray="47.1" stroke-dashoffset="0" fill="none" stroke-linecap="round"/>
+            </svg>
+            <span id="timer-seconds" class="absolute text-[9px] font-mono font-bold text-sky-700">8</span>
+          </div>
+          <span class="hidden sm:inline text-slate-600 text-[11px] font-medium">Auto Next</span>
+        </div>
+
+        <!-- Play / Pause Toggle -->
+        <button id="btn-toggle-play" onclick="togglePlayPause()" title="Play/Pause (Spacebar)" class="px-2.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1 transition shadow-sm active:scale-95">
+          <i id="play-icon" data-lucide="pause" class="w-3.5 h-3.5"></i>
+          <span id="play-text" class="hidden sm:inline">Pause</span>
+        </button>
+
+        <!-- Prev / Next Arrows -->
+        <div class="flex items-center bg-white border border-slate-200 rounded-xl p-0.5 shadow-sm">
+          <button onclick="navigateStep(-1)" title="Previous Depot (&larr;)" class="p-1 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-slate-900 transition">
+            <i data-lucide="chevron-left" class="w-4 h-4"></i>
+          </button>
+          <button onclick="navigateStep(1)" title="Next Depot (&rarr;)" class="p-1 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-slate-900 transition">
+            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <!-- Speed Dropdown -->
+        <select id="speed-select" onchange="changeSpeed(this.value)" class="bg-white text-slate-700 border border-slate-200 text-xs rounded-xl px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer shadow-sm">
+          <option value="5000" selected>5s</option>
+          <option value="8000">8s</option>
+          <option value="12000">12s</option>
+          <option value="20000">20s</option>
+        </select>
+
+        <!-- Fullscreen -->
+        <button onclick="toggleFullScreen()" title="Fullscreen" class="p-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 rounded-xl transition shadow-sm">
+          <i data-lucide="maximize" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 7 Depot Quick Navigator Pills & Global Real-Time Counters (Light Theme) -->
+  <nav class="bg-white/95 border-b border-slate-200/90 py-1.5 px-4 overflow-x-auto shadow-sm">
+    <div class="max-w-[1750px] mx-auto flex items-center justify-between gap-4 min-w-max">
+      <div class="flex items-center gap-1.5">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1 flex items-center gap-1">
+          <i data-lucide="network" class="w-3.5 h-3.5 text-sky-600"></i> Depots (1-7):
+        </span>
+        <div id="depot-nav-pills" class="flex items-center gap-1.5">
+          <!-- 7 Pills populated dynamically -->
+        </div>
+      </div>
+      
+      <div class="flex items-center gap-4 text-xs text-slate-600">
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Total Stock: <b class="text-slate-900 font-mono" id="global-total-stock">400,000</b> units</span>
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-sky-500"></span> Daily Sales: <b class="text-sky-700 font-mono" id="global-total-sales">$1,348,600</b></span>
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-blue-500"></span> Dispatched: <b class="text-blue-700 font-mono" id="global-total-dispatch">35,080</b> units (<span id="global-dispatch-rate" class="text-emerald-600 font-bold">98.7%</span>)</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ========================================================================= -->
+  <!-- MAIN WORKSPACE -->
+  <!-- ========================================================================= -->
+  <main class="flex-1 max-w-[1750px] w-full mx-auto p-3 sm:p-4 flex flex-col justify-start relative overflow-hidden">
+    
+    <!-- ========================================================================= -->
+    <!-- VIEW 1: 7-DEPOT NETWORK PIPELINE (CLEAN FULL PAGE TIMELINE) -->
+    <!-- ========================================================================= -->
+    <div id="view-network" class="w-full flex-1 flex flex-col justify-center items-center py-4 h-full transition-all duration-500">
+      
+      <!-- Clean Transparent Pipeline Stage (No Card Box) -->
+      <div id="pipeline-card" class="relative w-full flex-1 min-h-[460px] flex items-center justify-center overflow-x-auto px-4 sm:px-6">
+        
+        <!-- Interactive Stage Container -->
+        <div id="pipeline-container" class="relative w-full min-w-[1100px] max-w-[1600px] h-[360px] mx-auto">
+          
+          <!-- Static SVG Wave Timeline with 6 Dynamic Segments -->
+          <svg id="network-svg" class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 1200 360" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="activeTrackGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#0284c7" />
+                <stop offset="50%" stop-color="#0ea5e9" />
+                <stop offset="100%" stop-color="#10b981" />
+              </linearGradient>
+            </defs>
+            
+            <!-- Segment 0: 01 Chennai -> 02 Coimbatore -->
+            <g id="segment-0">
+              <path id="seg-0-glow" d="M 80 235 C 168.4 235, 161.6 125, 250 125" stroke="#38bdf8" stroke-width="16" stroke-linecap="round" stroke-opacity="0.32" fill="none" class="hidden" />
+              <path id="seg-0-tube" d="M 80 235 C 168.4 235, 161.6 125, 250 125" stroke="url(#activeTrackGrad)" stroke-width="7" stroke-linecap="round" fill="none" class="hidden" />
+              <path id="seg-0-pulse" d="M 80 235 C 168.4 235, 161.6 125, 250 125" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-dasharray="8 14" fill="none" class="pipeline-flow-fast hidden" />
+              <path id="seg-0-bg" d="M 80 235 C 168.4 235, 161.6 125, 250 125" stroke="#cbd5e1" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.4" />
+              <path id="seg-0-dotted" d="M 80 235 C 168.4 235, 161.6 125, 250 125" stroke="#0284c7" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="6 9" fill="none" opacity="0.85" />
+            </g>
+
+            <!-- Segment 1: 02 Coimbatore -> 03 Hubli -->
+            <g id="segment-1">
+              <path id="seg-1-glow" d="M 250 125 C 338.4 125, 331.6 235, 420 235" stroke="#38bdf8" stroke-width="16" stroke-linecap="round" stroke-opacity="0.32" fill="none" class="hidden" />
+              <path id="seg-1-tube" d="M 250 125 C 338.4 125, 331.6 235, 420 235" stroke="url(#activeTrackGrad)" stroke-width="7" stroke-linecap="round" fill="none" class="hidden" />
+              <path id="seg-1-pulse" d="M 250 125 C 338.4 125, 331.6 235, 420 235" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-dasharray="8 14" fill="none" class="pipeline-flow-fast hidden" />
+              <path id="seg-1-bg" d="M 250 125 C 338.4 125, 331.6 235, 420 235" stroke="#cbd5e1" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.4" />
+              <path id="seg-1-dotted" d="M 250 125 C 338.4 125, 331.6 235, 420 235" stroke="#0284c7" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="6 9" fill="none" opacity="0.85" />
+            </g>
+
+            <!-- Segment 2: 03 Hubli -> 04 Cochin -->
+            <g id="segment-2">
+              <path id="seg-2-glow" d="M 420 235 C 513.6 235, 506.4 125, 600 125" stroke="#38bdf8" stroke-width="16" stroke-linecap="round" stroke-opacity="0.32" fill="none" class="hidden" />
+              <path id="seg-2-tube" d="M 420 235 C 513.6 235, 506.4 125, 600 125" stroke="url(#activeTrackGrad)" stroke-width="7" stroke-linecap="round" fill="none" class="hidden" />
+              <path id="seg-2-pulse" d="M 420 235 C 513.6 235, 506.4 125, 600 125" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-dasharray="8 14" fill="none" class="pipeline-flow-fast hidden" />
+              <path id="seg-2-bg" d="M 420 235 C 513.6 235, 506.4 125, 600 125" stroke="#cbd5e1" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.4" />
+              <path id="seg-2-dotted" d="M 420 235 C 513.6 235, 506.4 125, 600 125" stroke="#0284c7" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="6 9" fill="none" opacity="0.85" />
+            </g>
+
+            <!-- Segment 3: 04 Cochin -> 05 Vijayawada -->
+            <g id="segment-3">
+              <path id="seg-3-glow" d="M 600 125 C 693.6 125, 686.4 235, 780 235" stroke="#38bdf8" stroke-width="16" stroke-linecap="round" stroke-opacity="0.32" fill="none" class="hidden" />
+              <path id="seg-3-tube" d="M 600 125 C 693.6 125, 686.4 235, 780 235" stroke="url(#activeTrackGrad)" stroke-width="7" stroke-linecap="round" fill="none" class="hidden" />
+              <path id="seg-3-pulse" d="M 600 125 C 693.6 125, 686.4 235, 780 235" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-dasharray="8 14" fill="none" class="pipeline-flow-fast hidden" />
+              <path id="seg-3-bg" d="M 600 125 C 693.6 125, 686.4 235, 780 235" stroke="#cbd5e1" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.4" />
+              <path id="seg-3-dotted" d="M 600 125 C 693.6 125, 686.4 235, 780 235" stroke="#0284c7" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="6 9" fill="none" opacity="0.85" />
+            </g>
+
+            <!-- Segment 4: 05 Vijayawada -> 06 Hyderabad -->
+            <g id="segment-4">
+              <path id="seg-4-glow" d="M 780 235 C 868.4 235, 861.6 125, 950 125" stroke="#38bdf8" stroke-width="16" stroke-linecap="round" stroke-opacity="0.32" fill="none" class="hidden" />
+              <path id="seg-4-tube" d="M 780 235 C 868.4 235, 861.6 125, 950 125" stroke="url(#activeTrackGrad)" stroke-width="7" stroke-linecap="round" fill="none" class="hidden" />
+              <path id="seg-4-pulse" d="M 780 235 C 868.4 235, 861.6 125, 950 125" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-dasharray="8 14" fill="none" class="pipeline-flow-fast hidden" />
+              <path id="seg-4-bg" d="M 780 235 C 868.4 235, 861.6 125, 950 125" stroke="#cbd5e1" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.4" />
+              <path id="seg-4-dotted" d="M 780 235 C 868.4 235, 861.6 125, 950 125" stroke="#0284c7" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="6 9" fill="none" opacity="0.85" />
+            </g>
+
+            <!-- Segment 5: 06 Hyderabad -> 07 Bangalore -->
+            <g id="segment-5">
+              <path id="seg-5-glow" d="M 950 125 C 1038.4 125, 1031.6 235, 1120 235" stroke="#38bdf8" stroke-width="16" stroke-linecap="round" stroke-opacity="0.32" fill="none" class="hidden" />
+              <path id="seg-5-tube" d="M 950 125 C 1038.4 125, 1031.6 235, 1120 235" stroke="url(#activeTrackGrad)" stroke-width="7" stroke-linecap="round" fill="none" class="hidden" />
+              <path id="seg-5-pulse" d="M 950 125 C 1038.4 125, 1031.6 235, 1120 235" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-dasharray="8 14" fill="none" class="pipeline-flow-fast hidden" />
+              <path id="seg-5-bg" d="M 950 125 C 1038.4 125, 1031.6 235, 1120 235" stroke="#cbd5e1" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.4" />
+              <path id="seg-5-dotted" d="M 950 125 C 1038.4 125, 1031.6 235, 1120 235" stroke="#0284c7" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="6 9" fill="none" opacity="0.85" />
+            </g>
+
+            <!-- Dynamic Traveling Energy Tracer Orb -->
+            <g id="tracer-group" class="pointer-events-none">
+              <circle id="tracer-glow" r="16" fill="#38bdf8" opacity="0.45" class="hidden" />
+              <circle id="tracer-orb" r="9" fill="#0284c7" stroke="#ffffff" stroke-width="2.5" class="hidden shadow-lg" />
+              <circle id="tracer-core" r="4" fill="#ffffff" class="hidden" />
+            </g>
+          </svg>
+
+          <!-- 7 Node Medallions Layer -->
+          <div id="nodes-container" class="absolute inset-0 w-full h-full pointer-events-auto">
+            <!-- Dynamically populated 7 nodes with absolute positioning -->
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- VIEW 2: DEPOT STOCK, SALES & DISPATCH DETAILED KPI DASHBOARD -->
+    <!-- ========================================================================= -->
+    <div id="view-depot" class="w-full hidden flex-col gap-3">
+      
+      <!-- Top Depot Header Bar -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/95 border border-slate-200/90 rounded-xl p-3.5 shadow-sm">
+        <div class="flex items-center gap-3">
+          <div id="depot-badge-icon" class="w-11 h-11 rounded-xl bg-gradient-to-br from-sky-500 to-blue-700 flex items-center justify-center text-white font-black text-xl shadow-md shadow-sky-500/25">
+            01
+          </div>
+          <div>
+            <div class="flex items-center gap-2.5">
+              <h2 id="depot-title" class="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+                Depot 01 — North Central Hub
+              </h2>
+              <span id="depot-status-pill" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                ACTIVE DISPATCH
+              </span>
+            </div>
+            <p id="depot-meta" class="text-[11px] sm:text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-2.5">
+              <span>📍 Northern Industrial Corridor</span>
+              <span>•</span>
+              <span>🏢 Storage & Dispatch Center</span>
+              <span>•</span>
+              <span class="text-sky-700 font-mono font-semibold">CODE: DPT-01-NORT</span>
+            </p>
+          </div>
+        </div>
+
+        <!-- Return / Next Action Buttons -->
+        <div class="flex items-center gap-2 self-end sm:self-auto">
+          <button onclick="returnToNetwork()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-300 transition shadow-sm" title="Zoom out to Network Matrix">
+            <i data-lucide="zoom-out" class="w-3.5 h-3.5 text-sky-600"></i>
+            <span>Zoom Out (Matrix)</span>
+          </button>
+          
+          <button onclick="navigateStep(1)" class="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
+            <span>Next Depot</span>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- 6 KEY KPI METRIC CARDS (STOCK, SALES, DISPATCH SPECIFIC) -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+        
+        <!-- KPI 1: Stock Inventory on Hand -->
+        <div class="glass-card rounded-xl p-3 flex flex-col justify-between border-l-4 border-l-sky-500 hover:border-sky-600 transition-all group">
+          <div class="flex items-center justify-between text-slate-500 mb-1">
+            <span class="text-[10px] font-bold uppercase tracking-wider">Current Stock</span>
+            <div class="p-1 rounded-md bg-sky-50 text-sky-600 group-hover:bg-sky-600 group-hover:text-white transition">
+              <i data-lucide="boxes" class="w-3.5 h-3.5"></i>
+            </div>
+          </div>
+          <div>
+            <div class="text-xl font-black text-slate-900 tracking-tight" id="kpi-stock-units">48,500</div>
+            <div class="flex items-center gap-1 text-[10px] text-sky-700 font-semibold mt-0.5">
+              <span id="kpi-stock-skus">1,240 SKUs Active</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI 2: Daily Sales Revenue -->
+        <div class="glass-card rounded-xl p-3 flex flex-col justify-between border-l-4 border-l-emerald-500 hover:border-emerald-600 transition-all group">
+          <div class="flex items-center justify-between text-slate-500 mb-1">
+            <span class="text-[10px] font-bold uppercase tracking-wider">Today's Sales</span>
+            <div class="p-1 rounded-md bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition">
+              <i data-lucide="dollar-sign" class="w-3.5 h-3.5"></i>
+            </div>
+          </div>
+          <div>
+            <div class="text-xl font-black text-slate-900 tracking-tight" id="kpi-sales-revenue">$142,800</div>
+            <div class="flex items-center gap-1 text-[10px] text-emerald-700 font-semibold mt-0.5">
+              <i data-lucide="trending-up" class="w-3 h-3"></i>
+              <span id="kpi-sales-volume">3,840 units sold</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI 3: Daily Dispatched Units -->
+        <div class="glass-card rounded-xl p-3 flex flex-col justify-between border-l-4 border-l-blue-500 hover:border-blue-600 transition-all group">
+          <div class="flex items-center justify-between text-slate-500 mb-1">
+            <span class="text-[10px] font-bold uppercase tracking-wider">Dispatched Today</span>
+            <div class="p-1 rounded-md bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition">
+              <i data-lucide="truck" class="w-3.5 h-3.5"></i>
+            </div>
+          </div>
+          <div>
+            <div class="text-xl font-black text-slate-900 tracking-tight" id="kpi-dispatch-units">3,790</div>
+            <div class="flex items-center gap-1 text-[10px] text-blue-700 font-semibold mt-0.5">
+              <span id="kpi-dispatch-rate">98.7% Fulfillment</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI 4: Pending Dispatch Orders -->
+        <div class="glass-card rounded-xl p-3 flex flex-col justify-between border-l-4 border-l-amber-500 hover:border-amber-600 transition-all group">
+          <div class="flex items-center justify-between text-slate-500 mb-1">
+            <span class="text-[10px] font-bold uppercase tracking-wider">Pending Orders</span>
+            <div class="p-1 rounded-md bg-amber-50 text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition">
+              <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+            </div>
+          </div>
+          <div>
+            <div class="text-xl font-black text-slate-900 tracking-tight" id="kpi-pending-orders">50</div>
+            <div class="flex items-center gap-1 text-[10px] text-amber-700 font-semibold mt-0.5">
+              <span id="kpi-pending-urgent">12 High Priority</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI 5: Stock-to-Sales Velocity -->
+        <div class="glass-card rounded-xl p-3 flex flex-col justify-between border-l-4 border-l-purple-500 hover:border-purple-600 transition-all group">
+          <div class="flex items-center justify-between text-slate-500 mb-1">
+            <span class="text-[10px] font-bold uppercase tracking-wider">Stock Turnover</span>
+            <div class="p-1 rounded-md bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            </div>
+          </div>
+          <div>
+            <div class="text-xl font-black text-slate-900 tracking-tight" id="kpi-stock-days">12.6 Days</div>
+            <div class="w-full bg-slate-200 rounded-full h-1 mt-1.5 overflow-hidden">
+              <div id="kpi-stock-days-bar" class="bg-purple-500 h-full rounded-full" style="width: 78%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI 6: Dispatch On-Time Delivery (OTD) -->
+        <div class="glass-card rounded-xl p-3 flex flex-col justify-between border-l-4 border-l-teal-500 hover:border-teal-600 transition-all group">
+          <div class="flex items-center justify-between text-slate-500 mb-1">
+            <span class="text-[10px] font-bold uppercase tracking-wider">Dispatch OTD</span>
+            <div class="p-1 rounded-md bg-teal-50 text-teal-600 group-hover:bg-teal-600 group-hover:text-white transition">
+              <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+            </div>
+          </div>
+          <div>
+            <div class="text-xl font-black text-slate-900 tracking-tight" id="kpi-otd">98.4%</div>
+            <div class="flex items-center gap-1 text-[10px] text-teal-700 font-semibold mt-0.5">
+              <i data-lucide="shield-check" class="w-3 h-3"></i>
+              <span>Target: &gt;95.0%</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- MAIN CHARTS SECTION (2 COLUMNS) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-3">
+        
+        <!-- Left: Sales vs. Dispatch Volume Hourly Trend (8 cols) -->
+        <div class="lg:col-span-8 glass-card rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
+          <div class="flex flex-wrap items-center justify-between mb-2 pb-2 border-b border-slate-100 gap-2">
+            <div>
+              <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+                <i data-lucide="line-chart" class="w-4 h-4 text-sky-600"></i>
+                Sales Orders vs. Dispatch Throughput
+              </h3>
+              <p class="text-[11px] text-slate-500">Hourly sales intake vs outbound dispatch volume across operating shifts</p>
+            </div>
+            <div class="flex items-center gap-3 text-xs font-semibold">
+              <span class="flex items-center gap-1.5 text-emerald-600"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Sales Volume</span>
+              <span class="flex items-center gap-1.5 text-sky-600"><span class="w-2.5 h-2.5 rounded-full bg-sky-500"></span> Dispatched</span>
+            </div>
+          </div>
+          
+          <div class="relative w-full h-[180px]">
+            <canvas id="salesDispatchChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Right: Stock Inventory Health Composition (4 cols) -->
+        <div class="lg:col-span-4 glass-card rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-100">
+            <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+              <i data-lucide="pie-chart" class="w-4 h-4 text-sky-600"></i>
+              Stock Inventory Breakdown
+            </h3>
+            <span class="text-[11px] font-mono font-bold text-sky-700" id="stock-total-header">48.5k Units</span>
+          </div>
+
+          <div class="relative w-full h-[120px] flex items-center justify-center">
+            <canvas id="stockCategoryPieChart"></canvas>
+          </div>
+
+          <!-- Mini Inventory Legend -->
+          <div class="grid grid-cols-3 gap-1.5 text-center pt-2 mt-1 border-t border-slate-100 text-xs">
+            <div class="bg-slate-50 p-1.5 rounded-lg border border-slate-200">
+              <span class="text-slate-500 text-[9px] uppercase font-bold block">Fast Move</span>
+              <span id="stock-fast-pct" class="font-bold text-emerald-600 text-xs">62%</span>
+            </div>
+            <div class="bg-slate-50 p-1.5 rounded-lg border border-slate-200">
+              <span class="text-slate-500 text-[9px] uppercase font-bold block">Standard</span>
+              <span id="stock-std-pct" class="font-bold text-sky-600 text-xs">26%</span>
+            </div>
+            <div class="bg-slate-50 p-1.5 rounded-lg border border-slate-200">
+              <span class="text-slate-500 text-[9px] uppercase font-bold block">Buffer</span>
+              <span id="stock-buffer-pct" class="font-bold text-amber-600 text-xs">12%</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- LOWER GRID: LIVE DISPATCH ORDERS QUEUE & TOP SELLING SKUs -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-3">
+        
+        <!-- Live Dispatch Orders Queue (7 cols) -->
+        <div class="lg:col-span-7 glass-card rounded-xl p-3.5 shadow-sm">
+          <div class="flex items-center justify-between mb-2 pb-2 border-b border-slate-100">
+            <div>
+              <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+                <i data-lucide="package" class="w-4 h-4 text-sky-600"></i>
+                Live Dispatch Orders Telemetry
+              </h3>
+              <p class="text-[11px] text-slate-500">Real-time order stage, truck loading bay assignment, and packing fulfillment</p>
+            </div>
+            <span class="px-2 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200 text-[10px] font-mono font-bold">
+              Live Feed
+            </span>
+          </div>
+
+          <div class="overflow-x-auto max-h-[175px] overflow-y-auto pr-1">
+            <table class="w-full text-left text-xs">
+              <thead class="sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10">
+                <tr class="text-slate-500 border-b border-slate-200 pb-1.5 text-[11px]">
+                  <th class="pb-1.5 font-semibold">Order ID</th>
+                  <th class="pb-1.5 font-semibold">Client / Destination</th>
+                  <th class="pb-1.5 font-semibold">Qty</th>
+                  <th class="pb-1.5 font-semibold">Value</th>
+                  <th class="pb-1.5 font-semibold">Status</th>
+                  <th class="pb-1.5 font-semibold">Bay</th>
+                </tr>
+              </thead>
+              <tbody id="dispatch-orders-table" class="divide-y divide-slate-100">
+                <!-- Dynamically populated orders -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Top Selling SKUs vs Stock Level (5 cols) -->
+        <div class="lg:col-span-5 glass-card rounded-xl p-3.5 shadow-sm flex flex-col">
+          <div class="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-100">
+            <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+              <i data-lucide="sparkles" class="w-4 h-4 text-amber-500"></i>
+              Top Selling SKUs & Stock Availability
+            </h3>
+            <span class="text-[10px] font-mono text-slate-400 font-bold">Today's Demand</span>
+          </div>
+
+          <div id="top-skus-list" class="space-y-2 overflow-y-auto max-h-[175px] pr-1 flex-1">
+            <!-- Dynamically populated SKUs -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- BOTTOM SLIDESHOW PROGRESS BAR -->
+      <div class="p-2.5 rounded-xl bg-gradient-to-r from-slate-50 via-sky-50 to-slate-50 border border-sky-200 flex items-center justify-between gap-3 shadow-sm">
+        <div class="flex items-center gap-2.5">
+          <div class="w-7 h-7 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center font-bold">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5 animate-spin-slow"></i>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-slate-900">
+              Automated Depot Cycle Active
+            </div>
+            <div class="text-[10px] text-slate-500">
+              Zooming out to Matrix & advancing to next depot in <span id="depot-countdown" class="font-mono text-sky-700 font-bold">6.0s</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="pauseAndHold()" class="px-2.5 py-1 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 rounded-lg border border-slate-300 transition shadow-sm">
+            Hold on this Depot
+          </button>
+          <button onclick="advanceNextDepotImmediate()" class="px-2.5 py-1 bg-sky-600 hover:bg-sky-500 text-xs font-semibold text-white rounded-lg shadow-sm transition">
+            Advance Now &rarr;
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Global Footer (Light Theme) -->
+  <footer class="border-t border-slate-200 bg-white py-2 px-4 text-xs text-slate-500 shadow-sm">
+    <div class="max-w-[1750px] mx-auto flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2 text-[11px]">
+        <span class="font-medium text-slate-600">Shortcuts:</span>
+        <kbd class="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded text-slate-700 font-mono text-[9px]">Space</kbd> Play/Pause
+        <kbd class="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded text-slate-700 font-mono text-[9px]">&larr; / &rarr;</kbd> Prev/Next
+        <kbd class="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded text-slate-700 font-mono text-[9px]">1-7</kbd> Depot Jump
+        <kbd class="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded text-slate-700 font-mono text-[9px]">H</kbd> Zoom Matrix
+      </div>
+      <div class="flex items-center gap-2 text-[11px] text-slate-500">
+        <span>Nexus Supply Chain Suite</span>
+        <span>•</span>
+        <span class="text-sky-700 font-medium">Stock & Dispatch Kiosk v4.2 Light</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ========================================================================= -->
+  <!-- JAVASCRIPT LOGIC FOR STOCK, SALES & DISPATCH DASHBOARD -->
+  <!-- ========================================================================= -->
+  <script>
+    // 7 Depots Dataset with Full Stock, Sales, and Dispatch Data
+    let DEPOTS = [
+      {
+        id: 1,
+        code: "DPT-01-CHN",
+        name: "Chennai Central Hub",
+        region: "Tamil Nadu Industrial & Port Belt",
+        stockUnits: 58500,
+        stockSkus: 1480,
+        salesRevenue: 242800,
+        salesVolume: 5840,
+        dispatchUnits: 5790,
+        fulfillmentRate: 99.1,
+        pendingOrders: 42,
+        urgentOrders: 9,
+        stockDays: 11.2,
+        otd: 98.7,
+        hourlySales: [160, 310, 590, 840, 790, 680, 520, 410, 260, 130, 60, 20],
+        hourlyDispatch: [130, 270, 540, 820, 810, 710, 550, 430, 270, 110, 30, 0],
+        stockPie: [64, 24, 12],
+        topSkus: [
+          { sku: "SKU-CHN-01", name: "Automotive Precision Machined Components", sold: 1220, stock: 5400, status: "Healthy" },
+          { sku: "SKU-CHN-02", name: "Coromandel Port-Grade Corrugated Export Boxes", sold: 940, stock: 3200, status: "Healthy" },
+          { sku: "SKU-CHN-03", name: "Heavy Duty Synthetic Industrial Lubricant 20L", sold: 780, stock: 1400, status: "Low Stock" },
+          { sku: "SKU-CHN-04", name: "High-Tensile Strapping Reels (Pallet Pack)", sold: 650, stock: 4100, status: "Healthy" }
+        ],
+        orders: [
+          { id: "ORD-CHN-901", client: "Hyundai Auto Ancillary Dock 4", qty: 650, val: "$32,400", status: "Dispatched", bay: "Bay 01" },
+          { id: "ORD-CHN-902", client: "Ennore Port Logistics Terminal", qty: 480, val: "$24,100", status: "Loading", bay: "Bay 04" },
+          { id: "ORD-CHN-903", client: "Ambattur Engineering Consortium", qty: 720, val: "$36,800", status: "Dispatched", bay: "Bay 02" },
+          { id: "ORD-CHN-904", client: "Foxconn Electronics Assembly Dock", qty: 380, val: "$19,500", status: "Picking", bay: "Bay 06" },
+          { id: "ORD-CHN-905", client: "Sriperumbudur Distribution Depot", qty: 540, val: "$27,000", status: "Ready to Ship", bay: "Bay 03" }
+        ]
+      },
+      {
+        id: 2,
+        code: "DPT-02-CBE",
+        name: "Coimbatore Terminal",
+        region: "Western Tamil Nadu Textile & Pump Belt",
+        stockUnits: 46200,
+        stockSkus: 1190,
+        salesRevenue: 168400,
+        salesVolume: 4300,
+        dispatchUnits: 4210,
+        fulfillmentRate: 97.9,
+        pendingOrders: 65,
+        urgentOrders: 14,
+        stockDays: 12.4,
+        otd: 97.3,
+        hourlySales: [110, 220, 470, 710, 680, 560, 430, 310, 180, 90, 40, 10],
+        hourlyDispatch: [90, 190, 440, 690, 710, 590, 460, 330, 170, 50, 0, 0],
+        stockPie: [60, 28, 12],
+        topSkus: [
+          { sku: "SKU-CBE-11", name: "High-Efficiency Submersible Motor Pumps", sold: 880, stock: 4100, status: "Healthy" },
+          { sku: "SKU-CBE-12", name: "Combed Cotton Yarn Bulk Packaging Spools", sold: 790, stock: 2900, status: "Healthy" },
+          { sku: "SKU-CBE-13", name: "Industrial Cast Iron Valve Assemblies", sold: 610, stock: 1200, status: "Low Stock" },
+          { sku: "SKU-CBE-14", name: "CNC Precision Tooling Inserts Pack", sold: 540, stock: 3600, status: "Healthy" }
+        ],
+        orders: [
+          { id: "ORD-CBE-411", client: "Lakshmi Machine Works Spares", qty: 540, val: "$26,200", status: "Dispatched", bay: "Bay 03" },
+          { id: "ORD-CBE-412", client: "Tirupur Knitwear Export Freight", qty: 690, val: "$31,800", status: "Loading", bay: "Bay 01" },
+          { id: "ORD-CBE-413", client: "Peelamedu Tech Spares Hub", qty: 420, val: "$18,900", status: "Dispatched", bay: "Bay 02" },
+          { id: "ORD-CBE-414", client: "Western Ghats Agri Logistics", qty: 310, val: "$14,500", status: "Picking", bay: "Bay 05" }
+        ]
+      },
+      {
+        id: 3,
+        code: "DPT-03-HBL",
+        name: "Hubli Logistics Hub",
+        region: "North Karnataka Commercial Junction",
+        stockUnits: 38400,
+        stockSkus: 940,
+        salesRevenue: 132500,
+        salesVolume: 3500,
+        dispatchUnits: 3440,
+        fulfillmentRate: 98.3,
+        pendingOrders: 38,
+        urgentOrders: 7,
+        stockDays: 13.1,
+        otd: 98.1,
+        hourlySales: [80, 170, 360, 540, 520, 410, 320, 240, 130, 60, 30, 10],
+        hourlyDispatch: [70, 150, 340, 530, 540, 430, 340, 260, 140, 30, 0, 0],
+        stockPie: [56, 31, 13],
+        topSkus: [
+          { sku: "SKU-HBL-21", name: "Agricultural Tractor & Earthmover Spares", sold: 640, stock: 3100, status: "Healthy" },
+          { sku: "SKU-HBL-22", name: "Heavy Duty Cotton Bale Wire Ties", sold: 580, stock: 2400, status: "Healthy" },
+          { sku: "SKU-HBL-23", name: "Solar Irrigation Inverter Modules", sold: 420, stock: 890, status: "Low Stock" },
+          { sku: "SKU-HBL-24", name: "Grain Storage Silo Moisture Liners", sold: 390, stock: 1950, status: "Healthy" }
+        ],
+        orders: [
+          { id: "ORD-HBL-701", client: "Dharwad Auto Belts & Ancillaries", qty: 610, val: "$22,400", status: "Dispatched", bay: "Bay 02" },
+          { id: "ORD-HBL-702", client: "Belgaum Foundry Supply Yard", qty: 450, val: "$17,800", status: "Loading", bay: "Bay 01" },
+          { id: "ORD-HBL-703", client: "Gadag Agro Commodities Terminal", qty: 520, val: "$19,200", status: "Dispatched", bay: "Bay 04" },
+          { id: "ORD-HBL-704", client: "South Western Railway Freight Hub", qty: 380, val: "$15,100", status: "Ready to Ship", bay: "Bay 03" }
+        ]
+      },
+      {
+        id: 4,
+        code: "DPT-04-COK",
+        name: "Cochin Port Terminal",
+        region: "Kerala Maritime Coastal Corridor",
+        stockUnits: 64200,
+        stockSkus: 1620,
+        salesRevenue: 218000,
+        salesVolume: 5600,
+        dispatchUnits: 5510,
+        fulfillmentRate: 98.4,
+        pendingOrders: 82,
+        urgentOrders: 18,
+        stockDays: 11.8,
+        otd: 96.8,
+        hourlySales: [140, 290, 610, 890, 850, 710, 560, 420, 240, 110, 50, 20],
+        hourlyDispatch: [120, 260, 580, 860, 880, 750, 590, 450, 230, 60, 0, 0],
+        stockPie: [66, 22, 12],
+        topSkus: [
+          { sku: "SKU-COK-31", name: "Marine Cold-Chain Insulated Seafood Totes", sold: 1150, stock: 6200, status: "Healthy" },
+          { sku: "SKU-COK-32", name: "Spices Vacuum-Barrier Packaging Sacks", sold: 880, stock: 3500, status: "Healthy" },
+          { sku: "SKU-COK-33", name: "Vallarpadam Intermodal Container Seals", sold: 720, stock: 1300, status: "Low Stock" },
+          { sku: "SKU-COK-34", name: "Portside Weatherproof Poly Tarpaulins", sold: 610, stock: 4800, status: "Healthy" }
+        ],
+        orders: [
+          { id: "ORD-COK-201", client: "Cochin Seafoods Export Line", qty: 890, val: "$38,400", status: "Dispatched", bay: "Bay 05" },
+          { id: "ORD-COK-202", client: "Aluva Chemical Logistics Hub", qty: 520, val: "$22,600", status: "Loading", bay: "Bay 02" },
+          { id: "ORD-COK-203", client: "Ernakulam Express Courier Bay", qty: 740, val: "$31,200", status: "Dispatched", bay: "Bay 01" },
+          { id: "ORD-COK-204", client: "InfoPark IT Hardware Distribution", qty: 410, val: "$18,500", status: "Picking", bay: "Bay 04" }
+        ]
+      },
+      {
+        id: 5,
+        code: "DPT-05-VJA",
+        name: "Vijayawada Gateway Depot",
+        region: "Andhra Pradesh Central Corridor",
+        stockUnits: 43100,
+        stockSkus: 1080,
+        salesRevenue: 154000,
+        salesVolume: 4100,
+        dispatchUnits: 4020,
+        fulfillmentRate: 98.0,
+        pendingOrders: 54,
+        urgentOrders: 11,
+        stockDays: 12.1,
+        otd: 97.5,
+        hourlySales: [95, 190, 420, 630, 610, 490, 380, 290, 160, 80, 40, 10],
+        hourlyDispatch: [85, 175, 400, 620, 630, 520, 400, 310, 165, 40, 0, 0],
+        stockPie: [61, 26, 13],
+        topSkus: [
+          { sku: "SKU-VJA-41", name: "Aqua Feed Moisture-Proof Storage Drums", sold: 810, stock: 3900, status: "Healthy" },
+          { sku: "SKU-VJA-42", name: "Commercial Agricultural Grain Bags (50kg)", sold: 680, stock: 2800, status: "Healthy" },
+          { sku: "SKU-VJA-43", name: "Heavy Vehicle Leaf Spring Assemblies", sold: 510, stock: 1100, status: "Low Stock" },
+          { sku: "SKU-VJA-44", name: "Krishna Delta Drip Irrigation Tubing", sold: 460, stock: 3200, status: "Healthy" }
+        ],
+        orders: [
+          { id: "ORD-VJA-501", client: "Machilipatnam Marine Cargo", qty: 680, val: "$26,500", status: "Dispatched", bay: "Bay 03" },
+          { id: "ORD-VJA-502", client: "Guntur Tobacco Logistics Center", qty: 540, val: "$21,100", status: "Loading", bay: "Bay 01" },
+          { id: "ORD-VJA-503", client: "Amaravati Capital Hardware Supply", qty: 620, val: "$24,700", status: "Dispatched", bay: "Bay 02" },
+          { id: "ORD-VJA-504", client: "Auto Nagar Wholesale Spares #08", qty: 350, val: "$14,200", status: "Ready to Ship", bay: "Bay 05" }
+        ]
+      },
+      {
+        id: 6,
+        code: "DPT-06-HYD",
+        name: "Hyderabad Tech Logistics Hub",
+        region: "Telangana Pharma & IT Corridor",
+        stockUnits: 72500,
+        stockSkus: 2150,
+        salesRevenue: 286000,
+        salesVolume: 7400,
+        dispatchUnits: 7350,
+        fulfillmentRate: 99.3,
+        pendingOrders: 48,
+        urgentOrders: 8,
+        stockDays: 10.8,
+        otd: 99.0,
+        hourlySales: [280, 560, 990, 1340, 1290, 1080, 870, 640, 360, 160, 70, 20],
+        hourlyDispatch: [240, 510, 960, 1310, 1340, 1130, 910, 680, 340, 90, 10, 0],
+        stockPie: [72, 20, 8],
+        topSkus: [
+          { sku: "SKU-HYD-51", name: "Cold-Chain Pharma Bio-Shippers (-20C)", sold: 2100, stock: 9800, status: "Healthy" },
+          { sku: "SKU-HYD-52", name: "High-Density Server Chassis Enclosures", sold: 1650, stock: 7200, status: "Healthy" },
+          { sku: "SKU-HYD-53", name: "Aerospace Precision Fasteners Grade-A", sold: 1250, stock: 1900, status: "Low Stock" },
+          { sku: "SKU-HYD-54", name: "E-Commerce Priority Fast-Track Mailers", sold: 980, stock: 5600, status: "Healthy" }
+        ],
+        orders: [
+          { id: "ORD-HYD-801", client: "Genome Valley Bio-Logistics Vault", qty: 1150, val: "$52,800", status: "Dispatched", bay: "Bay 02" },
+          { id: "ORD-HYD-802", client: "Shamshabad Air Freight Dock A", qty: 980, val: "$44,200", status: "Loading", bay: "Bay 04" },
+          { id: "ORD-HYD-803", client: "HITEC City IT Hardware Depot", qty: 1350, val: "$61,400", status: "Dispatched", bay: "Bay 01" },
+          { id: "ORD-HYD-804", client: "Medchal Heavy Transport Hub", qty: 620, val: "$28,500", status: "Ready to Ship", bay: "Bay 06" }
+        ]
+      },
+      {
+        id: 7,
+        code: "DPT-07-BLR",
+        name: "Bangalore Silicon Hub",
+        region: "South Karnataka Express & Tech Corridor",
+        stockUnits: 81500,
+        stockSkus: 2380,
+        salesRevenue: 318000,
+        salesVolume: 8200,
+        dispatchUnits: 8160,
+        fulfillmentRate: 99.5,
+        pendingOrders: 32,
+        urgentOrders: 6,
+        stockDays: 9.8,
+        otd: 99.4,
+        hourlySales: [310, 620, 1120, 1460, 1410, 1180, 950, 710, 410, 180, 80, 30],
+        hourlyDispatch: [270, 580, 1090, 1440, 1460, 1240, 990, 740, 380, 110, 20, 0],
+        stockPie: [76, 17, 7],
+        topSkus: [
+          { sku: "SKU-BLR-61", name: "Aerospace Precision Avionics Satchels", sold: 2250, stock: 11400, status: "Healthy" },
+          { sku: "SKU-BLR-62", name: "ESD Electrostatic Sensitive Shippers", sold: 1820, stock: 8100, status: "Healthy" },
+          { sku: "SKU-BLR-63", name: "Robotic Automation Wire Harness Kits", sold: 1390, stock: 2200, status: "Low Stock" },
+          { sku: "SKU-BLR-64", name: "Rapid Drone Delivery Composite Pods", sold: 1100, stock: 6500, status: "Healthy" }
+        ],
+        orders: [
+          { id: "ORD-BLR-101", client: "Peenya Industrial Express Terminal", qty: 1280, val: "$58,400", status: "Dispatched", bay: "Bay 01" },
+          { id: "ORD-BLR-102", client: "Whitefield Priority Fulfillment Bay", qty: 1040, val: "$47,600", status: "Dispatched", bay: "Bay 03" },
+          { id: "ORD-BLR-103", client: "Devanahalli Airport Cargo Vault", qty: 1420, val: "$64,900", status: "Loading", bay: "Bay 02" },
+          { id: "ORD-BLR-104", client: "Electronic City Logistics Hub 04", qty: 710, val: "$33,200", status: "Ready to Ship", bay: "Bay 05" }
+        ]
+      }
+    ];
+
+    // State Variables
+    let currentDepotIndex = 0;
+    let currentStage = 'network'; // 'network' | 'depot'
+    let isPlaying = true;
+    let isTransitioning = false;
+    let stepDuration = 5000; // 5 seconds default
+    let remainingTime = 5000;
+    let timerInterval = null;
+    let salesDispatchChart = null;
+    let stockCategoryPieChart = null;
+
+    // Initialization
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      updateGlobalMetrics();
+      initDepotNavPills();
+      renderNetworkNodes();
+      updateClock();
+      setInterval(updateClock, 1000);
+      
+      startSlideshowTimer();
+      updateActiveNodeHighlight();
+    });
+
+    function updateClock() {
+      const now = new Date();
+      const el = document.getElementById('live-clock');
+      if (el) {
+        el.innerText = now.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      }
+    }
+
+    function updateGlobalMetrics() {
+      let totalStock = DEPOTS.reduce((acc, d) => acc + (Number(d.stockUnits) || 0), 0);
+      let totalSales = DEPOTS.reduce((acc, d) => acc + (Number(d.salesRevenue) || 0), 0);
+      let totalDispatch = DEPOTS.reduce((acc, d) => acc + (Number(d.dispatchUnits) || 0), 0);
+      let totalSalesVol = DEPOTS.reduce((acc, d) => acc + (Number(d.salesVolume) || 0), 0);
+      let overallFulfillment = totalSalesVol > 0 ? ((totalDispatch / totalSalesVol) * 100).toFixed(1) : '98.7';
+      
+      const stockEl = document.getElementById('global-total-stock');
+      const salesEl = document.getElementById('global-total-sales');
+      const dispatchEl = document.getElementById('global-total-dispatch');
+      const rateEl = document.getElementById('global-dispatch-rate');
+
+      if (stockEl) stockEl.innerText = totalStock.toLocaleString();
+      if (salesEl) salesEl.innerText = '$' + totalSales.toLocaleString();
+      if (dispatchEl) dispatchEl.innerText = totalDispatch.toLocaleString();
+      if (rateEl) rateEl.innerText = overallFulfillment + '%';
+    }
+
+    function initDepotNavPills() {
+      const container = document.getElementById('depot-nav-pills');
+      if (!container) return;
+      container.innerHTML = '';
+      
+      DEPOTS.forEach((depot, idx) => {
+        const btn = document.createElement('button');
+        btn.id = `pill-depot-${idx}`;
+        btn.onclick = () => {
+          jumpToDepot(idx);
+          if (currentStage === 'network') openDepotView(idx);
+        };
+        btn.className = `px-2.5 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all duration-300 border ${
+          idx === currentDepotIndex 
+            ? 'bg-sky-50 text-sky-700 border-sky-300 shadow-sm font-bold' 
+            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+        }`;
+        btn.innerHTML = `
+          <span class="w-2 h-2 rounded-full ${idx === currentDepotIndex ? 'bg-sky-500 animate-ping' : 'bg-slate-300'}"></span>
+          <span>0${depot.id}</span>
+          <span class="hidden md:inline text-[11px] opacity-75">${depot.name.split(' ')[0]}</span>
+        `;
+        container.appendChild(btn);
+      });
+    }
+
+    // =========================================================================
+    // 7-DEPOT NETWORK TIMELINE & NODES
+    // =========================================================================
+    const NODE_POSITIONS = [
+      { xPct: 6.67, yPct: 65.28 },
+      { xPct: 20.83, yPct: 34.72 },
+      { xPct: 35.00, yPct: 65.28 },
+      { xPct: 50.00, yPct: 34.72 },
+      { xPct: 65.00, yPct: 65.28 },
+      { xPct: 79.17, yPct: 34.72 },
+      { xPct: 93.33, yPct: 65.28 }
+    ];
+
+    function updateTimelineSegments() {
+      for (let i = 0; i < 6; i++) {
+        const isReached = i < currentDepotIndex;
+        const glow = document.getElementById(`seg-${i}-glow`);
+        const tube = document.getElementById(`seg-${i}-tube`);
+        const pulse = document.getElementById(`seg-${i}-pulse`);
+        const bg = document.getElementById(`seg-${i}-bg`);
+        const dotted = document.getElementById(`seg-${i}-dotted`);
+
+        if (isReached) {
+          if (glow) glow.classList.remove('hidden');
+          if (tube) tube.classList.remove('hidden');
+          if (pulse) pulse.classList.remove('hidden');
+          if (bg) bg.classList.add('hidden');
+          if (dotted) dotted.classList.add('hidden');
+        } else {
+          if (glow) glow.classList.add('hidden');
+          if (tube) tube.classList.add('hidden');
+          if (pulse) pulse.classList.add('hidden');
+          if (bg) bg.classList.remove('hidden');
+          if (dotted) dotted.classList.remove('hidden');
+        }
+      }
+    }
+
+    function renderNetworkNodes() {
+      const container = document.getElementById('nodes-container');
+      if (!container) return;
+      container.innerHTML = '';
+
+      DEPOTS.forEach((depot, idx) => {
+        const pos = NODE_POSITIONS[idx];
+        const nodeWrapper = document.createElement('div');
+        nodeWrapper.className = 'absolute flex flex-col items-center justify-center cursor-pointer group';
+        nodeWrapper.style.left = `${pos.xPct}%`;
+        nodeWrapper.style.top = `${pos.yPct}%`;
+        nodeWrapper.style.transform = 'translate(-50%, -50%)';
+        nodeWrapper.onclick = (e) => {
+          e.stopPropagation();
+          jumpToDepot(idx);
+          openDepotView(idx);
+        };
+
+        const isCurrent = idx === currentDepotIndex;
+        const isReached = idx < currentDepotIndex;
+
+        let circleClasses = 'bg-white border-2 border-dashed border-slate-300 hover:border-slate-400 text-slate-800 shadow-sm hover:scale-105';
+        let depotLabelColor = 'text-slate-400';
+        let numColor = 'text-slate-800';
+        let badgeHtml = `<span id="node-badge-${idx}" class="text-[9px] font-bold px-2 py-0.5 rounded-full mt-0.5 bg-slate-100 text-slate-500 border border-slate-200">${depot.fulfillmentRate}% Fill</span>`;
+
+        if (isCurrent) {
+          circleClasses = 'bg-gradient-to-br from-sky-500 via-teal-500 to-blue-600 text-white ring-4 ring-sky-300 scale-110 shadow-xl shadow-sky-500/30';
+          depotLabelColor = 'text-sky-100 font-bold';
+          numColor = 'text-white font-black';
+          badgeHtml = `<span id="node-badge-${idx}" class="text-[9px] font-bold px-2 py-0.5 rounded-full mt-0.5 bg-black/25 text-white">${depot.fulfillmentRate}% Fill</span>`;
+        } else if (isReached) {
+          circleClasses = 'bg-white border-4 border-sky-600 text-slate-900 shadow-lg hover:scale-105';
+          depotLabelColor = 'text-sky-600 font-semibold';
+          numColor = 'text-slate-900 font-black';
+          badgeHtml = `<span id="node-badge-${idx}" class="text-[9px] font-bold px-2 py-0.5 rounded-full mt-0.5 bg-emerald-50 text-emerald-700 border border-emerald-300">✓ ${depot.fulfillmentRate}%</span>`;
+        }
+
+        nodeWrapper.innerHTML = `
+          <div id="node-ring-${idx}" class="absolute -inset-3 rounded-full border-2 border-sky-400/0 transition-all duration-500 pointer-events-none ${isCurrent ? 'border-sky-400/80 animate-ping' : ''}"></div>
+          
+          <div id="node-circle-${idx}" class="relative w-20 h-20 sm:w-22 sm:h-22 rounded-full flex flex-col items-center justify-center transition-all duration-300 ${circleClasses}">
+            <span id="node-tag-${idx}" class="text-[9px] font-mono uppercase tracking-widest ${depotLabelColor}">Depot</span>
+            <span id="node-num-${idx}" class="text-xl sm:text-2xl font-black ${numColor}">0${depot.id}</span>
+            ${badgeHtml}
+          </div>
+
+          <div class="mt-2 text-center transition-all duration-300 pointer-events-none">
+            <div id="node-label-${idx}" class="text-xs font-bold ${isCurrent ? 'text-sky-700 scale-105' : 'text-slate-700 group-hover:text-slate-900'}">
+              ${depot.name}
+            </div>
+            <div class="text-[10px] font-mono font-bold text-emerald-600">$${(depot.salesRevenue / 1000).toFixed(0)}k Sales</div>
+          </div>
+        `;
+
+        container.appendChild(nodeWrapper);
+      });
+
+      updateTimelineSegments();
+    }
+
+    function updateActiveNodeHighlight() {
+      const depot = DEPOTS[currentDepotIndex] || DEPOTS[0];
+      const activeIndicator = document.getElementById('active-depot-indicator');
+      if (activeIndicator) {
+        activeIndicator.innerHTML = `
+          <span class="text-sky-700 font-mono font-bold mr-1">#0${depot.id}</span> ${depot.name}
+        `;
+      }
+
+      // 1. Update Navigator Pills
+      DEPOTS.forEach((_, idx) => {
+        const pill = document.getElementById(`pill-depot-${idx}`);
+        if (pill) {
+          if (idx === currentDepotIndex) {
+            pill.className = 'px-2.5 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all duration-300 border bg-sky-50 text-sky-700 border-sky-300 shadow-sm font-bold';
+            const dot = pill.querySelector('span');
+            if (dot) dot.className = 'w-2 h-2 rounded-full bg-sky-500 animate-ping';
+          } else if (idx < currentDepotIndex) {
+            pill.className = 'px-2.5 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all duration-300 border bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 font-semibold';
+            const dot = pill.querySelector('span');
+            if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+          } else {
+            pill.className = 'px-2.5 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all duration-300 border bg-white text-slate-600 border-slate-200 hover:bg-slate-50';
+            const dot = pill.querySelector('span');
+            if (dot) dot.className = 'w-2 h-2 rounded-full bg-slate-300';
+          }
+        }
+      });
+
+      // 2. Update Node Circle Styles in-place without destroying DOM elements
+      DEPOTS.forEach((d, idx) => {
+        const circle = document.getElementById(`node-circle-${idx}`);
+        const ring = document.getElementById(`node-ring-${idx}`);
+        const label = document.getElementById(`node-label-${idx}`);
+        const num = document.getElementById(`node-num-${idx}`);
+        const tag = document.getElementById(`node-tag-${idx}`);
+        const badge = document.getElementById(`node-badge-${idx}`);
+
+        const isCurrent = idx === currentDepotIndex;
+        const isReached = idx < currentDepotIndex;
+
+        if (circle) {
+          if (isCurrent) {
+            circle.className = 'relative w-20 h-20 sm:w-22 sm:h-22 rounded-full flex flex-col items-center justify-center transition-all duration-300 bg-gradient-to-br from-sky-500 via-teal-500 to-blue-600 text-white ring-4 ring-sky-300 scale-110 shadow-xl shadow-sky-500/30';
+            if (ring) ring.className = 'absolute -inset-3 rounded-full border-2 border-sky-400/80 animate-ping pointer-events-none';
+            if (label) label.className = 'text-xs font-bold text-sky-700 scale-105';
+            if (tag) tag.className = 'text-[9px] font-mono uppercase tracking-widest text-sky-100 font-bold';
+            if (num) num.className = 'text-xl sm:text-2xl font-black text-white';
+            if (badge) {
+              badge.className = 'text-[9px] font-bold px-2 py-0.5 rounded-full mt-0.5 bg-black/25 text-white';
+              badge.innerText = `${d.fulfillmentRate}% Fill`;
+            }
+          } else if (isReached) {
+            circle.className = 'relative w-20 h-20 sm:w-22 sm:h-22 rounded-full flex flex-col items-center justify-center transition-all duration-300 bg-white border-4 border-sky-600 text-slate-900 shadow-lg hover:scale-105';
+            if (ring) ring.className = 'absolute -inset-3 rounded-full border-2 border-sky-400/0 pointer-events-none';
+            if (label) label.className = 'text-xs font-bold text-slate-700 group-hover:text-slate-900';
+            if (tag) tag.className = 'text-[9px] font-mono uppercase tracking-widest text-sky-600 font-semibold';
+            if (num) num.className = 'text-xl sm:text-2xl font-black text-slate-900';
+            if (badge) {
+              badge.className = 'text-[9px] font-bold px-2 py-0.5 rounded-full mt-0.5 bg-emerald-50 text-emerald-700 border border-emerald-300';
+              badge.innerText = `✓ ${d.fulfillmentRate}%`;
+            }
+          } else {
+            circle.className = 'relative w-20 h-20 sm:w-22 sm:h-22 rounded-full flex flex-col items-center justify-center transition-all duration-300 bg-white border-2 border-dashed border-slate-300 hover:border-slate-400 text-slate-800 shadow-sm hover:scale-105';
+            if (ring) ring.className = 'absolute -inset-3 rounded-full border-2 border-sky-400/0 pointer-events-none';
+            if (label) label.className = 'text-xs font-bold text-slate-700 group-hover:text-slate-900';
+            if (tag) tag.className = 'text-[9px] font-mono uppercase tracking-widest text-slate-400';
+            if (num) num.className = 'text-xl sm:text-2xl font-black text-slate-800';
+            if (badge) {
+              badge.className = 'text-[9px] font-bold px-2 py-0.5 rounded-full mt-0.5 bg-slate-100 text-slate-500 border border-slate-200';
+              badge.innerText = `${d.fulfillmentRate}% Fill`;
+            }
+          }
+        }
+      });
+
+      // 3. Immediately update timeline segments
+      updateTimelineSegments();
+    }
+
+    function getDepotTransformOrigin(depotIdx) {
+      const container = document.getElementById('pipeline-container');
+      const circle = document.getElementById(`node-circle-${depotIdx}`);
+      if (container && circle) {
+        const contRect = container.getBoundingClientRect();
+        const circRect = circle.getBoundingClientRect();
+        if (contRect.width > 0 && contRect.height > 0) {
+          const x = ((circRect.left + circRect.width / 2 - contRect.left) / contRect.width) * 100;
+          const y = ((circRect.top + circRect.height / 2 - contRect.top) / contRect.height) * 100;
+          return { x: x.toFixed(2), y: y.toFixed(2) };
+        }
+      }
+      const pos = NODE_POSITIONS[depotIdx] || NODE_POSITIONS[0];
+      return { x: pos.xPct.toFixed(2), y: pos.yPct.toFixed(2) };
+    }
+
+    // =========================================================================
+    // SLIDESHOW CYCLE & TIMER
+    // =========================================================================
+    function startSlideshowTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+      
+      const totalTimeForStage = (currentStage === 'network') ? 3500 : stepDuration;
+      remainingTime = totalTimeForStage;
+      const updateFrequency = 100;
+      
+      timerInterval = setInterval(() => {
+        if (!isPlaying || isTransitioning) return;
+
+        remainingTime -= updateFrequency;
+        
+        const pct = Math.max(0, remainingTime / totalTimeForStage);
+        const dashOffset = 47.1 * (1 - pct);
+        const circle = document.getElementById('timer-circle');
+        if (circle) circle.style.strokeDashoffset = dashOffset;
+        
+        const secDisplay = Math.ceil(remainingTime / 1000);
+        const timerSecondsEl = document.getElementById('timer-seconds');
+        if (timerSecondsEl) timerSecondsEl.innerText = secDisplay;
+        
+        if (currentStage === 'network') {
+          const cd = document.getElementById('network-countdown');
+          if (cd) cd.innerText = secDisplay;
+        } else {
+          const cd = document.getElementById('depot-countdown');
+          if (cd) cd.innerText = (remainingTime / 1000).toFixed(1) + 's';
+        }
+
+        if (remainingTime <= 0) {
+          clearInterval(timerInterval);
+          timerInterval = null;
+          handleStageAutoAdvance();
+        }
+      }, updateFrequency);
+    }
+
+    function handleStageAutoAdvance() {
+      if (currentStage === 'network') {
+        openDepotView();
+      } else {
+        returnToNetwork(true);
+      }
+    }
+
+    function toggleViewMode() {
+      if (currentStage === 'network') {
+        openDepotView();
+      } else {
+        returnToNetwork(false);
+      }
+    }
+
+    // =========================================================================
+    // TARGETED DEPOT CIRCLE ZOOM-IN & ZOOM-OUT DIVE TRANSITIONS
+    // =========================================================================
+    let lastZoomOrigin = { x: 50, y: 50 };
+
+    function openDepotView(targetIdx) {
+      if (isTransitioning) return;
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+
+      if (typeof targetIdx === 'number') {
+        currentDepotIndex = targetIdx;
+      }
+      currentStage = 'depot';
+      isTransitioning = true;
+
+      const btnNetwork = document.getElementById('btn-view-network');
+      const btnDepot = document.getElementById('btn-view-depot');
+      if (btnNetwork) btnNetwork.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition border bg-white text-slate-600 border-slate-200 hover:text-slate-900 shadow-sm';
+      if (btnDepot) btnDepot.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition border bg-sky-50 text-sky-700 border-sky-300 shadow-sm font-bold';
+
+      const networkView = document.getElementById('view-network');
+      const pipelineContainer = document.getElementById('pipeline-container');
+      const depotView = document.getElementById('view-depot');
+
+      // 1. Calculate targeted transform origin directly from the active depot circle
+      const origin = getDepotTransformOrigin(currentDepotIndex);
+      lastZoomOrigin = origin;
+
+      // 2. Zoom in dive into this specific depot circle
+      if (pipelineContainer) {
+        pipelineContainer.style.transformOrigin = `${origin.x}% ${origin.y}%`;
+        pipelineContainer.classList.remove('zooming-out-start', 'zooming-out-end');
+        pipelineContainer.classList.add('zooming-in');
+      }
+
+      setTimeout(() => {
+        if (networkView) networkView.classList.add('hidden');
+        if (pipelineContainer) {
+          pipelineContainer.classList.remove('zooming-in');
+          pipelineContainer.style.transformOrigin = '50% 50%';
+        }
+
+        // 3. Zoom Land In on detailed Depot View
+        if (depotView) {
+          depotView.classList.remove('hidden', 'zoom-leave-out');
+          depotView.classList.add('zoom-land-in');
+        }
+
+        populateDepotData(DEPOTS[currentDepotIndex]);
+        updateActiveNodeHighlight();
+
+        setTimeout(() => {
+          if (depotView) depotView.classList.remove('zoom-land-in');
+          isTransitioning = false;
+          startSlideshowTimer(); // Start 5s dashboard timer only after zoom-in completes!
+        }, 450);
+      }, 550);
+    }
+
+    function returnToNetwork(isAutoCycle = false) {
+      if (isTransitioning) return;
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+
+      currentStage = 'network';
+      isTransitioning = true;
+
+      const btnNetwork = document.getElementById('btn-view-network');
+      const btnDepot = document.getElementById('btn-view-depot');
+      if (btnNetwork) btnNetwork.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition border bg-sky-50 text-sky-700 border-sky-300 shadow-sm font-bold';
+      if (btnDepot) btnDepot.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition border bg-white text-slate-600 border-slate-200 hover:text-slate-900 shadow-sm';
+
+      const networkView = document.getElementById('view-network');
+      const pipelineContainer = document.getElementById('pipeline-container');
+      const depotView = document.getElementById('view-depot');
+
+      // 1. Zoom Leave Out on Depot view
+      if (depotView) {
+        depotView.classList.remove('zoom-land-in');
+        depotView.classList.add('zoom-leave-out');
+      }
+
+      setTimeout(() => {
+        if (depotView) {
+          depotView.classList.add('hidden');
+          depotView.classList.remove('zoom-leave-out');
+        }
+
+        // 2. Targeted Zoom Return Out pulling back out from the specific current depot circle
+        const origin = getDepotTransformOrigin(currentDepotIndex) || lastZoomOrigin;
+        lastZoomOrigin = origin;
+
+        if (networkView) networkView.classList.remove('hidden');
+
+        // Keep current depot highlighted while zooming out to the network matrix
+        updateActiveNodeHighlight();
+
+        if (pipelineContainer) {
+          pipelineContainer.style.transformOrigin = `${origin.x}% ${origin.y}%`;
+          pipelineContainer.classList.remove('zooming-in', 'zooming-out-end');
+          pipelineContainer.classList.add('zooming-out-start');
+
+          // Force reflow
+          void pipelineContainer.offsetWidth;
+
+          pipelineContainer.classList.remove('zooming-out-start');
+          pipelineContainer.classList.add('zooming-out-end');
+        }
+
+        setTimeout(() => {
+          if (pipelineContainer) {
+            pipelineContainer.classList.remove('zooming-out-end');
+            pipelineContainer.style.transformOrigin = '50% 50%';
+          }
+
+          if (isAutoCycle) {
+            // Keep isTransitioning = true so no timer races!
+            // Pause 600ms on network view at current depot, then animate laser beam to next depot!
+            setTimeout(() => {
+              animateAdvanceToNextDepot();
+            }, 600);
+          } else {
+            isTransitioning = false;
+            startSlideshowTimer();
+          }
+        }, 650);
+      }, 250);
+    }
+
+    const SEGMENT_CURVES = [
+      { p0: {x: 80, y: 235}, p1: {x: 168.4, y: 235}, p2: {x: 161.6, y: 125}, p3: {x: 250, y: 125}, len: 230 },
+      { p0: {x: 250, y: 125}, p1: {x: 338.4, y: 125}, p2: {x: 331.6, y: 235}, p3: {x: 420, y: 235}, len: 230 },
+      { p0: {x: 420, y: 235}, p1: {x: 513.6, y: 235}, p2: {x: 506.4, y: 125}, p3: {x: 600, y: 125}, len: 230 },
+      { p0: {x: 600, y: 125}, p1: {x: 693.6, y: 125}, p2: {x: 686.4, y: 235}, p3: {x: 780, y: 235}, len: 230 },
+      { p0: {x: 780, y: 235}, p1: {x: 868.4, y: 235}, p2: {x: 861.6, y: 125}, p3: {x: 950, y: 125}, len: 230 },
+      { p0: {x: 950, y: 125}, p1: {x: 1038.4, y: 125}, p2: {x: 1031.6, y: 235}, p3: {x: 1120, y: 235}, len: 230 }
+    ];
+
+    function getCubicBezierPoint(curve, t) {
+      const t2 = t * t;
+      const t3 = t2 * t;
+      const mt = 1 - t;
+      const mt2 = mt * mt;
+      const mt3 = mt2 * mt;
+
+      const x = mt3 * curve.p0.x + 3 * mt2 * t * curve.p1.x + 3 * mt * t2 * curve.p2.x + t3 * curve.p3.x;
+      const y = mt3 * curve.p0.y + 3 * mt2 * t * curve.p1.y + 3 * mt * t2 * curve.p2.y + t3 * curve.p3.y;
+      return { x, y };
+    }
+
+    let activeBeamRafId = null;
+
+    function animateAdvanceToNextDepot() {
+      if (activeBeamRafId) {
+        cancelAnimationFrame(activeBeamRafId);
+        activeBeamRafId = null;
+      }
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+
+      isTransitioning = true;
+
+      const fromIdx = currentDepotIndex;
+      const toIdx = (currentDepotIndex + 1) % DEPOTS.length;
+
+      if (toIdx === 0) {
+        // Wrap around back to Chennai (01): reset all segments cleanly
+        currentDepotIndex = 0;
+        updateActiveNodeHighlight();
+        isTransitioning = false;
+        startSlideshowTimer();
+        return;
+      }
+
+      const segIdx = fromIdx; // Segment connecting fromIdx to toIdx (e.g. seg-0 connects 0 to 1)
+      const curve = SEGMENT_CURVES[segIdx] || SEGMENT_CURVES[0];
+      const glow = document.getElementById(`seg-${segIdx}-glow`);
+      const tube = document.getElementById(`seg-${segIdx}-tube`);
+      const pulse = document.getElementById(`seg-${segIdx}-pulse`);
+      const bg = document.getElementById(`seg-${segIdx}-bg`);
+      const dotted = document.getElementById(`seg-${segIdx}-dotted`);
+
+      const tracerGlow = document.getElementById('tracer-glow');
+      const tracerOrb = document.getElementById('tracer-orb');
+      const tracerCore = document.getElementById('tracer-core');
+
+      const pathLength = curve.len;
+
+      // Initialize laser beam and glow to 0% revealed
+      if (glow) {
+        glow.classList.remove('hidden');
+        glow.style.strokeDasharray = `${pathLength}`;
+        glow.style.strokeDashoffset = `${pathLength}`;
+      }
+      if (tube) {
+        tube.classList.remove('hidden');
+        tube.style.strokeDasharray = `${pathLength}`;
+        tube.style.strokeDashoffset = `${pathLength}`;
+      }
+      if (pulse) pulse.classList.add('hidden'); // Keep pulse hidden until arrival
+
+      // Position and reveal tracer energy orb at start node
+      const startPt = curve.p0;
+      if (tracerGlow) { tracerGlow.setAttribute('cx', startPt.x); tracerGlow.setAttribute('cy', startPt.y); tracerGlow.classList.remove('hidden'); }
+      if (tracerOrb) { tracerOrb.setAttribute('cx', startPt.x); tracerOrb.setAttribute('cy', startPt.y); tracerOrb.classList.remove('hidden'); }
+      if (tracerCore) { tracerCore.setAttribute('cx', startPt.x); tracerCore.setAttribute('cy', startPt.y); tracerCore.classList.remove('hidden'); }
+
+      // Transition the fromIdx node circle to reached status
+      const prevCircle = document.getElementById(`node-circle-${fromIdx}`);
+      const prevRing = document.getElementById(`node-ring-${fromIdx}`);
+      const prevTag = document.getElementById(`node-tag-${fromIdx}`);
+      const prevNum = document.getElementById(`node-num-${fromIdx}`);
+      const prevBadge = document.getElementById(`node-badge-${fromIdx}`);
+      const prevLabel = document.getElementById(`node-label-${fromIdx}`);
+
+      if (prevCircle) {
+        prevCircle.className = 'relative w-20 h-20 sm:w-22 sm:h-22 rounded-full flex flex-col items-center justify-center transition-all duration-500 bg-white border-4 border-sky-600 text-slate-900 shadow-lg hover:scale-105';
+        if (prevRing) prevRing.className = 'absolute -inset-3 rounded-full border-2 border-sky-400/0 pointer-events-none';
+        if (prevLabel) prevLabel.className = 'text-xs font-bold text-slate-700 group-hover:text-slate-900';
+        if (prevTag) prevTag.className = 'text-[9px] font-mono uppercase tracking-widest text-sky-600 font-semibold';
+        if (prevNum) prevNum.className = 'text-xl sm:text-2xl font-black text-slate-900';
+        if (prevBadge) {
+          prevBadge.className = 'text-[9px] font-bold px-2 py-0.5 rounded-full mt-0.5 bg-emerald-50 text-emerald-700 border border-emerald-300';
+          prevBadge.innerText = `✓ ${DEPOTS[fromIdx].fulfillmentRate}%`;
+        }
+      }
+
+      // Smooth beam travel over 1000ms
+      const duration = 1000;
+      const startTime = performance.now();
+
+      function stepBeam(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(1, elapsed / duration);
+        // Cubic ease-in-out curve
+        const ease = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+        const currentDist = pathLength * ease;
+        const offset = pathLength - currentDist;
+
+        if (tube) tube.style.strokeDashoffset = `${offset}`;
+        if (glow) glow.style.strokeDashoffset = `${offset}`;
+
+        const pt = getCubicBezierPoint(curve, ease);
+        if (tracerGlow) { tracerGlow.setAttribute('cx', pt.x); tracerGlow.setAttribute('cy', pt.y); }
+        if (tracerOrb) { tracerOrb.setAttribute('cx', pt.x); tracerOrb.setAttribute('cy', pt.y); }
+        if (tracerCore) { tracerCore.setAttribute('cx', pt.x); tracerCore.setAttribute('cy', pt.y); }
+
+        if (progress < 1) {
+          activeBeamRafId = requestAnimationFrame(stepBeam);
+        } else {
+          // Beam arrived at target depot!
+          activeBeamRafId = null;
+
+          if (tracerGlow) tracerGlow.classList.add('hidden');
+          if (tracerOrb) tracerOrb.classList.add('hidden');
+          if (tracerCore) tracerCore.classList.add('hidden');
+
+          if (bg) bg.classList.add('hidden');
+          if (dotted) dotted.classList.add('hidden');
+          if (pulse) pulse.classList.remove('hidden');
+
+          if (tube) {
+            tube.style.strokeDasharray = '';
+            tube.style.strokeDashoffset = '';
+          }
+          if (glow) {
+            glow.style.strokeDasharray = '';
+            glow.style.strokeDashoffset = '';
+          }
+
+          currentDepotIndex = toIdx;
+          updateActiveNodeHighlight();
+          isTransitioning = false;
+
+          // Start the 3.0s countdown on the newly arrived depot before diving into it!
+          startSlideshowTimer();
+        }
+      }
+
+      activeBeamRafId = requestAnimationFrame(stepBeam);
+    }
+
+    function populateDepotData(depot) {
+      if (!depot) return;
+      
+      const badge = document.getElementById('depot-badge-icon');
+      const title = document.getElementById('depot-title');
+      const meta = document.getElementById('depot-meta');
+
+      if (badge) badge.innerText = `0${depot.id}`;
+      if (title) title.innerText = `Depot 0${depot.id} — ${depot.name}`;
+      if (meta) {
+        meta.innerHTML = `
+          <span>📍 ${depot.region}</span>
+          <span>•</span>
+          <span>🏢 Storage & Dispatch Center</span>
+          <span>•</span>
+          <span class="text-sky-700 font-mono font-semibold">CODE: ${depot.code}</span>
+        `;
+      }
+      
+      // Stock, Sales, Dispatch KPIs
+      const stockUnitsEl = document.getElementById('kpi-stock-units');
+      const stockSkusEl = document.getElementById('kpi-stock-skus');
+      const salesRevEl = document.getElementById('kpi-sales-revenue');
+      const salesVolEl = document.getElementById('kpi-sales-volume');
+      const dispatchUnitsEl = document.getElementById('kpi-dispatch-units');
+      const dispatchRateEl = document.getElementById('kpi-dispatch-rate');
+      const pendingOrdersEl = document.getElementById('kpi-pending-orders');
+      const pendingUrgentEl = document.getElementById('kpi-pending-urgent');
+      const stockDaysEl = document.getElementById('kpi-stock-days');
+      const stockDaysBar = document.getElementById('kpi-stock-days-bar');
+      const otdEl = document.getElementById('kpi-otd');
+
+      if (stockUnitsEl) stockUnitsEl.innerText = Number(depot.stockUnits).toLocaleString();
+      if (stockSkusEl) stockSkusEl.innerText = `${Number(depot.stockSkus).toLocaleString()} SKUs Active`;
+      
+      if (salesRevEl) salesRevEl.innerText = '$' + Number(depot.salesRevenue).toLocaleString();
+      if (salesVolEl) salesVolEl.innerText = `${Number(depot.salesVolume).toLocaleString()} units sold`;
+      
+      if (dispatchUnitsEl) dispatchUnitsEl.innerText = Number(depot.dispatchUnits).toLocaleString();
+      if (dispatchRateEl) dispatchRateEl.innerText = `${depot.fulfillmentRate}% Fulfillment`;
+      
+      if (pendingOrdersEl) pendingOrdersEl.innerText = depot.pendingOrders;
+      if (pendingUrgentEl) pendingUrgentEl.innerText = `${depot.urgentOrders} High Priority`;
+      
+      if (stockDaysEl) stockDaysEl.innerText = `${depot.stockDays} Days`;
+      if (stockDaysBar) stockDaysBar.style.width = Math.min(100, depot.stockDays * 6) + '%';
+      
+      if (otdEl) otdEl.innerText = depot.otd + '%';
+
+      // Header Pie value & mini legend
+      const stockHeader = document.getElementById('stock-total-header');
+      const fastPct = document.getElementById('stock-fast-pct');
+      const stdPct = document.getElementById('stock-std-pct');
+      const bufferPct = document.getElementById('stock-buffer-pct');
+
+      if (stockHeader) stockHeader.innerText = `${(depot.stockUnits / 1000).toFixed(1)}k Units`;
+      if (fastPct) fastPct.innerText = `${depot.stockPie[0]}%`;
+      if (stdPct) stdPct.innerText = `${depot.stockPie[1]}%`;
+      if (bufferPct) bufferPct.innerText = `${depot.stockPie[2]}%`;
+
+      // Top SKUs List (Light Theme Card Styling)
+      const skuList = document.getElementById('top-skus-list');
+      if (skuList) {
+        skuList.innerHTML = '';
+        (depot.topSkus || []).forEach(item => {
+          const skuCard = document.createElement('div');
+          skuCard.className = 'bg-slate-50 border border-slate-200/90 rounded-lg p-2 flex flex-col justify-between gap-1 hover:border-sky-300 transition shadow-xs';
+          skuCard.innerHTML = `
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-slate-800 truncate max-w-[220px]" title="${item.name}">${item.name}</span>
+              <span class="font-mono text-[9px] px-1.5 py-0.5 rounded font-bold ${item.status === 'Healthy' ? 'bg-emerald-50 text-emerald-700 border border-emerald-300' : 'bg-amber-50 text-amber-700 border border-amber-300'}">${item.status}</span>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-slate-500">
+              <span>Sold Today: <b class="text-slate-800">${item.sold.toLocaleString()}</b></span>
+              <span>In Stock: <b class="text-sky-700 font-bold">${item.stock.toLocaleString()}</b></span>
+            </div>
+            <div class="w-full bg-slate-200 rounded-full h-1 overflow-hidden">
+              <div class="bg-gradient-to-r from-sky-500 to-emerald-500 h-full rounded-full" style="width: ${Math.min(100, (item.sold / item.stock) * 300)}%"></div>
+            </div>
+          `;
+          skuList.appendChild(skuCard);
+        });
+      }
+
+      // Dispatch Orders Table (Light Theme)
+      const orderTable = document.getElementById('dispatch-orders-table');
+      if (orderTable) {
+        orderTable.innerHTML = '';
+        (depot.orders || []).forEach(ord => {
+          let statusBadge = 'bg-sky-50 text-sky-700 border-sky-200';
+          if (ord.status === 'Dispatched') statusBadge = 'bg-emerald-50 text-emerald-700 border-emerald-300';
+          if (ord.status === 'Loading') statusBadge = 'bg-blue-50 text-blue-700 border-blue-300';
+          if (ord.status === 'Picking') statusBadge = 'bg-amber-50 text-amber-700 border-amber-300';
+          if (ord.status === 'Ready to Ship') statusBadge = 'bg-purple-50 text-purple-700 border-purple-300';
+
+          const row = document.createElement('tr');
+          row.className = 'hover:bg-slate-50/80 transition';
+          row.innerHTML = `
+            <td class="py-1.5 font-mono text-sky-700 font-bold">${ord.id}</td>
+            <td class="py-1.5 text-slate-800 font-medium">${ord.client}</td>
+            <td class="py-1.5 font-mono text-slate-900 font-bold">${ord.qty}</td>
+            <td class="py-1.5 font-mono text-emerald-700 font-bold">${ord.val}</td>
+            <td class="py-1.5"><span class="px-1.5 py-0.2 rounded text-[9px] font-bold border ${statusBadge}">${ord.status}</span></td>
+            <td class="py-1.5 font-mono text-slate-500">${ord.bay}</td>
+          `;
+          orderTable.appendChild(row);
+        });
+      }
+
+      lucide.createIcons();
+      renderCharts(depot);
+    }
+
+    function renderCharts(depot) {
+      const labels = ['06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00', '24:00', '02:00', '04:00'];
+      
+      // Destroy previous chart
+      if (salesDispatchChart) salesDispatchChart.destroy();
+
+      const canvas1 = document.getElementById('salesDispatchChart');
+      if (canvas1) {
+        const ctx1 = canvas1.getContext('2d');
+        const gradSales = ctx1.createLinearGradient(0, 0, 0, 180);
+        gradSales.addColorStop(0, 'rgba(5, 150, 105, 0.25)');
+        gradSales.addColorStop(1, 'rgba(5, 150, 105, 0.0)');
+
+        const gradDispatch = ctx1.createLinearGradient(0, 0, 0, 180);
+        gradDispatch.addColorStop(0, 'rgba(2, 132, 199, 0.25)');
+        gradDispatch.addColorStop(1, 'rgba(2, 132, 199, 0.0)');
+
+        salesDispatchChart = new Chart(ctx1, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: 'Sales Demand (units)',
+                data: depot.hourlySales || [],
+                borderColor: '#059669',
+                backgroundColor: gradSales,
+                borderWidth: 2.5,
+                tension: 0.35,
+                fill: true,
+                pointBackgroundColor: '#059669',
+                pointRadius: 2.5
+              },
+              {
+                label: 'Dispatched (units)',
+                data: depot.hourlyDispatch || [],
+                borderColor: '#0284c7',
+                backgroundColor: gradDispatch,
+                borderWidth: 2.5,
+                tension: 0.35,
+                fill: true,
+                pointBackgroundColor: '#0284c7',
+                pointRadius: 2.5
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { 
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: '#ffffff',
+                titleColor: '#0369a1',
+                bodyColor: '#1e293b',
+                borderColor: '#cbd5e1',
+                borderWidth: 1,
+                padding: 8,
+                boxPadding: 4,
+                usePointStyle: true
+              }
+            },
+            scales: {
+              x: { grid: { color: 'rgba(226, 232, 240, 0.7)' }, ticks: { color: '#64748b', font: { size: 9 } } },
+              y: { grid: { color: 'rgba(226, 232, 240, 0.7)' }, ticks: { color: '#64748b', font: { size: 9 } } }
+            }
+          }
+        });
+      }
+
+      // Donut Chart for Stock Category (Light Theme)
+      if (stockCategoryPieChart) stockCategoryPieChart.destroy();
+      const canvas2 = document.getElementById('stockCategoryPieChart');
+      if (canvas2) {
+        const ctx2 = canvas2.getContext('2d');
+
+        stockCategoryPieChart = new Chart(ctx2, {
+          type: 'doughnut',
+          data: {
+            labels: ['Fast Moving', 'Standard Velocity', 'Safety Buffer'],
+            datasets: [{
+              data: depot.stockPie || [60, 30, 10],
+              backgroundColor: ['#10b981', '#0ea5e9', '#f59e0b'],
+              borderColor: '#ffffff',
+              borderWidth: 3
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            plugins: { 
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: '#ffffff',
+                titleColor: '#0369a1',
+                bodyColor: '#1e293b',
+                borderColor: '#cbd5e1',
+                borderWidth: 1,
+                callbacks: {
+                  label: function(context) {
+                    return ` ${context.label}: ${context.raw}%`;
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+    }
+
+    // =========================================================================
+    // EXCEL / CSV UPLOAD ENGINE
+    // =========================================================================
+    function handleExcelUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+          if (jsonData && jsonData.length > 0) {
+            // Map uploaded excel columns to our depots
+            jsonData.slice(0, 7).forEach((row, i) => {
+              if (DEPOTS[i]) {
+                if (row.Depot || row.Name) DEPOTS[i].name = row.Depot || row.Name;
+                if (row.Region) DEPOTS[i].region = row.Region;
+                if (row.Code) DEPOTS[i].code = row.Code;
+                if (row.Stock || row.StockUnits) DEPOTS[i].stockUnits = Number(row.Stock || row.StockUnits);
+                if (row.SKUs || row.StockSkus) DEPOTS[i].stockSkus = Number(row.SKUs || row.StockSkus);
+                if (row.Sales || row.SalesRevenue) DEPOTS[i].salesRevenue = Number(row.Sales || row.SalesRevenue);
+                if (row.Volume || row.SalesVolume) DEPOTS[i].salesVolume = Number(row.Volume || row.SalesVolume);
+                if (row.Dispatch || row.DispatchUnits) DEPOTS[i].dispatchUnits = Number(row.Dispatch || row.DispatchUnits);
+                if (row.Fulfillment || row.FulfillmentRate) DEPOTS[i].fulfillmentRate = Number(row.Fulfillment || row.FulfillmentRate);
+                if (row.Pending || row.PendingOrders) DEPOTS[i].pendingOrders = Number(row.Pending || row.PendingOrders);
+                if (row.Urgent || row.UrgentOrders) DEPOTS[i].urgentOrders = Number(row.Urgent || row.UrgentOrders);
+                if (row.OTD) DEPOTS[i].otd = Number(row.OTD);
+              }
+            });
+
+            alert(`✅ Excel successfully loaded! Imported data for ${Math.min(jsonData.length, 7)} depots.`);
+            updateGlobalMetrics();
+            initDepotNavPills();
+            renderNetworkNodes();
+            populateDepotData(DEPOTS[currentDepotIndex]);
+          }
+        } catch (err) {
+          console.error(err);
+          alert('Error reading Excel file. Please ensure valid xlsx or csv.');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    // =========================================================================
+    // CONTROLS & NAVIGATION
+    // =========================================================================
+    function togglePlayPause() {
+      isPlaying = !isPlaying;
+      const btn = document.getElementById('btn-toggle-play');
+      const icon = document.getElementById('play-icon');
+      const text = document.getElementById('play-text');
+      
+      if (isPlaying) {
+        if (icon) icon.setAttribute('data-lucide', 'pause');
+        if (text) text.innerText = 'Pause';
+        if (btn) btn.className = 'px-2.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1 transition shadow-sm active:scale-95';
+      } else {
+        if (icon) icon.setAttribute('data-lucide', 'play');
+        if (text) text.innerText = 'Resume';
+        if (btn) btn.className = 'px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1 transition shadow-sm active:scale-95';
+      }
+      lucide.createIcons();
+    }
+
+    function pauseAndHold() {
+      if (isPlaying) togglePlayPause();
+    }
+
+    function navigateStep(direction) {
+      currentDepotIndex = (currentDepotIndex + direction + DEPOTS.length) % DEPOTS.length;
+      if (currentStage === 'depot') {
+        const depotView = document.getElementById('view-depot');
+        if (depotView) {
+          depotView.classList.remove('depot-scale-switch');
+          void depotView.offsetWidth; // trigger reflow
+          depotView.classList.add('depot-scale-switch');
+        }
+        populateDepotData(DEPOTS[currentDepotIndex]);
+      }
+      updateActiveNodeHighlight();
+      startSlideshowTimer();
+    }
+
+    function jumpToDepot(index) {
+      currentDepotIndex = index;
+      if (currentStage === 'depot') {
+        const depotView = document.getElementById('view-depot');
+        if (depotView) {
+          depotView.classList.remove('depot-scale-switch');
+          void depotView.offsetWidth; // trigger reflow
+          depotView.classList.add('depot-scale-switch');
+        }
+        populateDepotData(DEPOTS[currentDepotIndex]);
+      }
+      updateActiveNodeHighlight();
+      startSlideshowTimer();
+    }
+
+    function advanceNextDepotImmediate() {
+      currentDepotIndex = (currentDepotIndex + 1) % DEPOTS.length;
+      populateDepotData(DEPOTS[currentDepotIndex]);
+      updateActiveNodeHighlight();
+      startSlideshowTimer();
+    }
+
+    function changeSpeed(val) {
+      stepDuration = parseInt(val, 10);
+      startSlideshowTimer();
+    }
+
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => console.log(err));
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePlayPause();
+      } else if (e.code === 'ArrowRight') {
+        navigateStep(1);
+      } else if (e.code === 'ArrowLeft') {
+        navigateStep(-1);
+      } else if (e.key >= '1' && e.key <= '7') {
+        jumpToDepot(parseInt(e.key, 10) - 1);
+        if (currentStage === 'network') openDepotView();
+      } else if (e.key.toLowerCase() === 'h') {
+        returnToNetwork();
+      }
+    });
+  </script>
+</body>
+</html>
